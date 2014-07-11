@@ -16,7 +16,7 @@ g = G(
 default_line_pressure = 85
 default_com_port = 9
 default_start_stop_dwell_time = 0.2
-default_travel_speed = 10
+default_travel_speed = 20
 default_print_height_abs = 0
 default_travel_height_abs = 2
 default_print_speed = 1.5
@@ -39,7 +39,7 @@ def turn_pressure_on(com_port = default_com_port, start_stop_dwell_time = defaul
         pressure_on = True
 
 # Printing Mode Macros
-def abs_move_z(height, z_axis = default_z_axis):
+def move_z_abs(height, z_axis = default_z_axis):
     global g
     g.abs_move(**{z_axis:height})
     
@@ -48,22 +48,21 @@ def travel_mode(travel_speed = default_travel_speed, travel_height_abs = default
     global g
     turn_pressure_off()
     g.feed(travel_speed)
-    abs_move_z(travel_height_abs)
+    move_z_abs(travel_height_abs)
 
-def travel_mode(travel_speed = default_travel_speed, travel_height_abs = default_travel_height_abs, whipe_angle=0):
+def travel_mode(travel_speed = default_travel_speed, travel_height_abs = default_travel_height_abs, whipe_distance=0, whipe_angle=0):
     """"Stop Extrusion, whipe, move to travel height, unwhipe"""
     global g
-    whipe_distance = 0.5
     turn_pressure_off()
     g.feed(travel_speed)
     move_x(whipe_distance,whipe_angle)
-    abs_move_z(travel_height_abs)  
+    move_z_abs(travel_height_abs)  
     move_x(whipe_distance,whipe_angle+np.pi)  
     
 def print_mode(travel_speed = default_travel_speed, print_height_abs = default_print_height_abs, print_speed = default_print_speed):
     """Move to print height, start Extrusion"""
     g.feed(travel_speed)
-    abs_move_z(print_height_abs)
+    move_z_abs(print_height_abs)
     turn_pressure_on()
     g.feed(print_speed)
   
@@ -83,96 +82,128 @@ def move_xy(x_distance, y_distance, theta=0):
     if (x_distance!=0 and y_distance!=0):
         g.move(x=x_distance*C-y_distance*S, y=x_distance*S+y_distance*C)
         
-def print_actuator(pressure=85, com_port=9, theta=0, print_height_abs=default_print_height_abs):
+def print_actuator(pressure=85, com_port=9, theta=0, travel_speed = default_travel_speed, print_height_abs=default_print_height_abs):
     """Prints a soft actuator with the stem starting in the current position and rotated by theta. Assume nozzle is already at the correct height"""
     global g           
                     
-  # stem
-  stem_print_speed = 1.5
-                                                                                                                        
-                                                                                                                                                                                                                                                                                                                                                                                      
-                                                                                                                                                                                                                                                      
-def printValve(pressure=85,com_port=9, theta=0, stem_print_speed = default_print_speed, print_height_abs=default_print_height_abs):
-    """Prints a valve with the stem starting in the current position and rotated by theta. Assume nozzle is already at the correct height"""
-    global g
-    
     # stems
     stem_print_speed = 1.5
+    stem_length =   6
+    pad_separation_stem_length = 4
     
-    #general
-    pad_z_separation = 0.2+0.19
-    junction_dist = 4
+    #pad
+    pad_length = 2.6 # length in Y
+    pad_width = 2.6 # width in x
+    n_meanders = 8
+    pad_print_speed = 3.375
+    meander_separation_dist = pad_length/n_meanders
     
-    #control pads
-    control_pad_stem_length = 8
-    control_pad_width = 2
-    control_pad_meander_separation = 0.35
-    control_pad_length = 5*control_pad_meander_separation
-    control_pad_print_speed = 1
+    def print_actuator_pad():
+        g.feed(pad_print_speed)
+        move_x(-pad_width/2) #move to the lower left corner of the pad
+        x_sign = 1
+        for meander in range(n_meanders-1):
+            move_y(meander_separation_dist)  # vertical down one meander width     
+            move_x(x_sign *pad_width)        # horizontal across the whole pad
+            x_sign = - x_sign
+        move_y(meander_separation_dist)      # vertical down one meander width     
+        move_x(x_sign*pad_width/2)           # move to the middle of the top of the pad
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+    print_mode(print_height_abs = print_height_abs,print_speed = stem_print_speed)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+    #print stem to actuator pad 1
+    move_y(stem_length, theta)
     
-    # flow pad
-    flow_pad_length = 1.5
-    flow_pad_width = 1.5
-    flow_stem_length = 2
-    flow_pad_print_speed = 2
-    flow_pad_meander_separation = 0.175
+    #print actuator pad 1
+    print_actuator_pad()
     
-    #feeds
-    stem_print_speed = 1.5
-    matrix_travel_speed = 2
-    pad_print_speed_1 = 1
-    pad_print_speed_2 = 4
-     
-    ##### START WRITING THE SCRIPT ####
-    g.write("\n\n; PRINT A VALVE rotation = " + str(theta) + ".")      
-    
-    #assume we start above the center of the pad
-    g.relative()
-    
-    #print the bottom pad and stem, starting at the edge of the pad
-    print_mode(print_speed = control_pad_print_speed)
-    y_sign = 1
-    n_meanders = int(control_pad_length/control_pad_meander_separation)
-    for meander in range(n_meanders):
-        move_y(y_sign*control_pad_width, theta)
-        move_x(control_pad_meander_separation, theta)
-        y_sign = -1*y_sign
-    move_y(y_sign*control_pad_width/2, theta)
-    
-    #print the stem from the bottom pad
+    #print connection stme to actuator pad 2
     g.feed(stem_print_speed)
-    move_x(control_pad_stem_length)
+    move_y(pad_separation_stem_length)
     
-    #travel to bottom interconect of flow lines
-    travel_mode(whipe_angle=theta+np.pi/2)
-    move_xy(x_distance=-control_pad_stem_length-0.5*control_pad_length, y_distance=-flow_stem_length-0.5*control_pad_width)
-    print_mode(print_height_abs=print_height_abs+pad_z_separation)
-        
-    #bottom flow line
-    g.feed(stem_print_speed)
-    move_y(flow_stem_length+0.5*(control_pad_width-flow_pad_length))
-    #flow pad
-    n_meanders = int(flow_pad_length/flow_pad_meander_separation)
-    x_sign = -1
-    g.feed(flow_pad_print_speed)
-    move_x(distance=(0.5*flow_pad_length))
-    for meander in range(n_meanders-1):
-        move_y(flow_pad_meander_separation,theta)
-        move_x(x_sign * flow_pad_width,theta)
-        x_sign = -1*x_sign
-    move_y(flow_pad_meander_separation,theta)    
-    move_x(x_sign*flow_pad_width/2, theta)
-    #top flow line
-    g.feed(stem_print_speed)
-    move_y(flow_stem_length+0.5*(control_pad_width-flow_pad_length))
-    
-    #travel over control pad junction
-    travel_mode(whipe_angle=theta+np.pi)
-    move_xy(x_distance=junction_dist+0.5*control_pad_length,y_distance=-0.5*flow_pad_length)
-    
-#main program
-#printValve();        
-print_actuator()                      
+    #print actuator pad 2
+    print_actuator_pad()
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+    travel_mode(whipe_angle = np.pi/2)
 
+def print_robot():
+    
+    # mold parameters
+    mold_z_zero_abs = 0     # absolute zero of the top of the mold
+    mold_center_x = 53.5    # x coordinate of the center of the robot, relative to mold top left corner
+    mold_front_actuator_y = - 13  # y cooredinate of the center of the front/foreward actuators, relative to mold top left corner
+    mold_actuator_z_bottom_abs = mold_z_zero_abs - 1.5 # relative to top of mold
+    mold_actuator_z_top = mold_z_zero_abs - 1 # relative top top of mold (expected)
+    mold_depth = 7.62
+    mold_body_width = 25.4
+    
+    # travel
+    travel_height_abs = mold_z_zero_abs + 5
+    
+    # needle inlet connections in the abdomen
+    inlet_length = 2
+    inlet_print_speed = 0.5
+    def print_inlet(height):
+        print_mode(print_height_abs=height, print_speed = inlet_print_speed)
+        g.move(y=inlet_length)
+    
+    #actuators 
+    actuator_separation_y = 7 #distance between the "legs"
+    n_actuator_rows = 4
+    
+    #make a arrays of Z interconnect points (locations of actuators)
+    actuator_z_connect_inset = 5
+    left_actuators_interconnects_x = mold_center_x - mold_body_width/2 + actuator_z_connect_inset
+    right_actuators_interconnects_x = mold_center_x + mold_body_width/2 - actuator_z_connect_inset
+    actuator_A_connection_points = []
+    actuator_B_connection_points = []
+    row_y = 0
+    for actuator in range(n_actuator_rows/2):
+        row_y = actuator*actuator_separation_y
+        actuator_A_connection_points.append((left_actuators_interconnects_x, mold_front_actuator_y - row_y))
+        actuator_A_connection_points.append((right_actuators_interconnects_x, mold_front_actuator_y -row_y - actuator_separation_y))
+        actuator_B_connection_points.append((right_actuators_interconnects_x, mold_front_actuator_y - row_y - actuator_separation_y))
+        actuator_B_connection_points.append((left_actuators_interconnects_x, mold_front_actuator_y - row_y))
+ 
+    #find the centers of the actuator arrays
+    channel_A_interconnect_center_y = sum([coordinate[1] for coordinate in actuator_A_connection_points])/n_actuator_rows
+    channel_B_interconnect_center_y = sum([coordinate[1] for coordinate in actuator_B_connection_points])/n_actuator_rows
+    
+    # control lines
+    control_line_A_height = mold_z_zero_abs-(1.0/3.0)*mold_depth
+    control_line_B_height = mold_z_zero_abs-(2.0/3.0)*mold_depth
+    controle_distribution_node_dwell_time = 2
+    
+    # pressure chambers
+    pressure_chamber_length = 3
+    pressure_chamber_print_speed = 0.25
+    pressure_chamber_stem_length = 2
+    pressure_chamber_print_height = mold_z_zero_abs - mold_depth/2.0
+    pressure_chamber_y = mold_front_actuator_y - 4*actuator_separation_y - 4
+    pressure_chamber_x_dist_from_center_line = (1.0/6.0)*mold_body_width
+    pressure_chamber_A_x = mold_center_x - pressure_chamber_x_dist_from_center_line
+    pressure_chamber_B_x = mold_center_x + pressure_chamber_x_dist_from_center_line
+ 
+    ################ START PRINTING ################
+    
+    # set the current X and Y as the origin of the current work coordinates
+    g.write("\nG92 X0 Y0 "+default_z_axis+"0 ; set the current position as the absolute work coordinate zero orgin\n")
+    g.absolute()
+    
+    # print pressure chamber A (left)
+    travel_mode(whipe_distance=0)
+    g.abs_move(x=pressure_chamber_A_x, y = pressure_chamber_y-pressure_chamber_length-pressure_chamber_stem_length-inlet_length)
+    print_inlet(pressure_chamber_print_height)
+    
+    # go to the Z interconnect hub for channel A
+    travel_mode(whipe_angle = np.pi/2)
+    g.abs_move(x=mold_center_x, y = channel_A_interconnect_center_y)
+    print_mode(pressure_chamber_print_height)
+    move_z_abs(control_line_A_height)
+    g.dwell(controle_distribution_node_dwell_time)
+
+#main program
+print_robot()     
+                   
 g.view()
 g.teardown()
