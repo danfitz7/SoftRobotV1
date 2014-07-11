@@ -172,7 +172,7 @@ default_line_pressure = 85
 default_com_port = 9
 default_start_stop_dwell_time = 0.2
 default_travel_speed = 20
-default_matrix_travel_speed = 2 # speed to travel in matrix (used for traveling vertically)
+default_matrix_travel_speed = 1 # speed to travel in matrix (used for traveling vertically)
 default_mold_top_abs = 0
 default_travel_height_abs = default_mold_top_abs+2
 default_print_speed = 1.5
@@ -195,26 +195,32 @@ def turn_pressure_on(com_port = default_com_port, start_stop_dwell_time = defaul
         pressure_on = True
 
 # Printing Mode Macros
-def move_z_abs(height, z_axis = default_z_axis):
+def move_z_abs(height, z_axis = default_z_axis, vertical_travel_speed = default_matrix_travel_speed):
     global g
-    if (g.get_current_position() and g.get_current_position()[2] != height):
+    cur_pos = g.get_current_position()
+    prev_speed=default_travel_speed
+    if (cur_pos):
+        prev_speed = cur_pos[3]
+        g.feed(vertical_travel_speed)
+    if ((not cur_pos) or (cur_pos[2] != height)):
         g.abs_move(**{z_axis:height})
+    g.feed(prev_speed)
     
-def travel_mode(travel_speed = default_travel_speed, travel_height_abs = default_travel_height_abs):
-    """"Stop Extrusion, move to travel height"""
-    global g
-    turn_pressure_off()
-    g.feed(travel_speed)
-    move_z_abs(travel_height_abs)
+#def travel_mode(travel_speed = default_travel_speed, travel_height_abs = default_travel_height_abs):
+#    """"Stop Extrusion, move to travel height"""
+#    global g
+#    turn_pressure_off()
+#    g.feed(travel_speed)
+#    move_z_abs(travel_height_abs)
 
 def travel_mode(travel_speed = default_travel_speed, travel_height_abs = default_travel_height_abs, whipe_distance=0, whipe_angle=0):
     """"Stop Extrusion, whipe, move to travel height, unwhipe"""
     global g
     turn_pressure_off()
     g.dwell(default_start_stop_dwell_time)
-    g.feed(travel_speed)
 #    move_x(whipe_distance,whipe_angle)
     move_z_abs(travel_height_abs)  
+    g.feed(travel_speed)
 #    move_x(whipe_distance,whipe_angle+np.pi)  
 
     
@@ -223,12 +229,11 @@ def print_mode(print_height_abs, travel_speed = default_travel_speed, print_spee
     g.feed(travel_speed)
 #    move_x(whipe_distance,whipe_angle)
     
-    #go to mold zero
-    if (g.get_current_position()[2]>default_travel_height_abs):
-        move_z_abs(default_travel_height_abs)
+    #go down to to mold zero if neccisary
+    if (g.get_current_position()[2]>default_mold_top_abs):
+        move_z_abs(default_mold_top_abs, vertical_travel_speed=travel_speed)
         
     #go the rest of the way in the default_matrix_travel_speed
-    g.feed(default_matrix_travel_speed)
     move_z_abs(print_height_abs)
     
     #start extrusion
@@ -309,9 +314,11 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
     #assume we start above the center of the pad
     g.relative()
     
-    #print the bottom control pad, starting at the edge of the pad
+    #move from above the pad center to its lower corner
     travel_mode()
     move_xy(x_distance= -control_pad_length/2.0 , y_distance=-control_pad_width/2.0,theta=theta)
+    
+    #print the bottom control pad, starting at the edge of the pad
     print_mode(print_height_abs=print_height_abs, print_speed = control_pad_print_speed)
     y_sign = 1
     n_meanders = int(control_pad_length/control_pad_meander_separation)
@@ -496,7 +503,6 @@ def print_robot():
     travel_mode(whipe_distance=0)
     for valve_y in valve_y_positions:
         g.abs_move(x=valve_x, y = valve_y)
-        print_mode(print_height_abs = valve_print_height)
         print_valve(flow_connection_x = valve_flow_connection, control_connection_y = valve_control_connection, print_height_abs=valve_print_height, theta=valve_angle)
     
     #connect the flow lines of the front two valves together, then to control line A
