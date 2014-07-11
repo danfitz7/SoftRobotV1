@@ -483,12 +483,13 @@ def print_robot():
     ################ Valves ################
     abdomen_length = 41.5
     n_valves = 4
-    valve_separation_y = (abdomen_length-4)/(n_valves+1.0)
+    abdomen_clearence = 4
+    valve_separation_y = (abdomen_length-2*abdomen_clearence)/(n_valves+1.0)
     valve_flow_connection = 3
-    valve_control_connection = 5
+    valve_control_connection = 3
     valve_print_height = control_line_height_abs -0.39 #this is the pad_z_separation from the print_valve function
     valve_flow_height = valve_print_height + 0.39 
-    valve_y_positions = [mold_back_leg_row_y - (1+n)*valve_separation_y for n in range(n_valves)]
+    valve_y_positions = [mold_head_y - mold_body_length + abdomen_clearence+(n_valves-n)*valve_separation_y for n in range(n_valves)]
     print "Valve Y Positions: " + str(valve_y_positions)
     valve_x = mold_center_x
     valve_angle = np.pi*0.5
