@@ -100,31 +100,34 @@ def print_actuator(pressure=85, com_port=9, theta=0, travel_speed = default_trav
     
     def print_actuator_pad():
         g.feed(pad_print_speed)
-        move_x(-pad_width/2) #move to the lower left corner of the pad
+        move_x(-pad_width/2, theta) #move to the lower left corner of the pad
         x_sign = 1
         for meander in range(n_meanders-1):
-            move_y(meander_separation_dist)  # vertical down one meander width     
-            move_x(x_sign *pad_width)        # horizontal across the whole pad
+            move_y(meander_separation_dist, theta)  # vertical down one meander width     
+            move_x(x_sign *pad_width, theta)        # horizontal across the whole pad
             x_sign = - x_sign
-        move_y(meander_separation_dist)      # vertical down one meander width     
-        move_x(x_sign*pad_width/2)           # move to the middle of the top of the pad
+        move_y(meander_separation_dist, theta)      # vertical down one meander width     
+        move_x(x_sign*pad_width/2, theta)           # move to the middle of the top of the pad
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
     print_mode(print_height_abs = print_height_abs,print_speed = stem_print_speed)
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       
+    
+    g.relative()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
     #print stem to actuator pad 1
     move_y(stem_length, theta)
     
     #print actuator pad 1
     print_actuator_pad()
     
-    #print connection stme to actuator pad 2
+    #print connection stem to actuator pad 2
     g.feed(stem_print_speed)
-    move_y(pad_separation_stem_length)
+    move_y(pad_separation_stem_length, theta)
     
     #print actuator pad 2
     print_actuator_pad()
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
-    travel_mode(whipe_angle = np.pi/2)
+    travel_mode(whipe_angle = theta+np.pi/2)
+    g.absolute()
 
 def print_robot():
     
@@ -136,6 +139,8 @@ def print_robot():
     mold_actuator_z_top = mold_z_zero_abs - 1 # relative top top of mold (expected)
     mold_depth = 7.62
     mold_body_width = 25.4
+    mold_body_length = 65.2
+    mold_head_y = -4.9
     
     # travel
     travel_height_abs = mold_z_zero_abs + 5
@@ -143,64 +148,129 @@ def print_robot():
     # needle inlet connections in the abdomen
     inlet_length = 2
     inlet_print_speed = 0.5
-    def print_inlet(height):
-        print_mode(print_height_abs=height, print_speed = inlet_print_speed)
-        g.move(y=inlet_length)
+    inlet_distance_from_edge = 4 
     
     #actuators 
-    actuator_separation_y = 7 #distance between the "legs"
-    n_actuator_rows = 4
-    
-    #make a arrays of Z interconnect points (locations of actuators)
+    actuator_print_height_offset = 0.1 # nozzle height above ecoflex
+    actuator_print_height = mold_actuator_z_top +  actuator_print_height_offset
+    actuator_separation_y = 7 #distance between the "legs"    actuator_z_connect_inset = 5
     actuator_z_connect_inset = 5
     left_actuators_interconnects_x = mold_center_x - mold_body_width/2 + actuator_z_connect_inset
     right_actuators_interconnects_x = mold_center_x + mold_body_width/2 - actuator_z_connect_inset
-    actuator_A_connection_points = []
-    actuator_B_connection_points = []
-    row_y = 0
-    for actuator in range(n_actuator_rows/2):
-        row_y = actuator*actuator_separation_y
-        actuator_A_connection_points.append((left_actuators_interconnects_x, mold_front_actuator_y - row_y))
-        actuator_A_connection_points.append((right_actuators_interconnects_x, mold_front_actuator_y -row_y - actuator_separation_y))
-        actuator_B_connection_points.append((right_actuators_interconnects_x, mold_front_actuator_y - row_y - actuator_separation_y))
-        actuator_B_connection_points.append((left_actuators_interconnects_x, mold_front_actuator_y - row_y))
- 
-    #find the centers of the actuator arrays
-    channel_A_interconnect_center_y = sum([coordinate[1] for coordinate in actuator_A_connection_points])/n_actuator_rows
-    channel_B_interconnect_center_y = sum([coordinate[1] for coordinate in actuator_B_connection_points])/n_actuator_rows
     
-    # control lines
-    control_line_A_height = mold_z_zero_abs-(1.0/3.0)*mold_depth
-    control_line_B_height = mold_z_zero_abs-(2.0/3.0)*mold_depth
-    controle_distribution_node_dwell_time = 2
+    def print_right_actuator():
+        print_actuator(theta = 0.5*np.pi)
     
-    # pressure chambers
-    pressure_chamber_length = 3
-    pressure_chamber_print_speed = 0.25
-    pressure_chamber_stem_length = 2
-    pressure_chamber_print_height = mold_z_zero_abs - mold_depth/2.0
-    pressure_chamber_y = mold_front_actuator_y - 4*actuator_separation_y - 4
-    pressure_chamber_x_dist_from_center_line = (1.0/6.0)*mold_body_width
-    pressure_chamber_A_x = mold_center_x - pressure_chamber_x_dist_from_center_line
-    pressure_chamber_B_x = mold_center_x + pressure_chamber_x_dist_from_center_line
+    def print_left_actuator():
+        print_actuator(theta = 1.5*np.pi)
+    
+    #make a arrays of Z interconnect points (locations of actuators)
+    n_actuator_rows = 4
+    #actuator_A_connection_points = []
+    #actuator_B_connection_points = []
+    #row_y = 0
+    #for actuator in range(n_actuator_rows/2):
+    #    row_y = actuator*actuator_separation_y
+    #    actuator_A_connection_points.append((left_actuators_interconnects_x, mold_front_actuator_y - row_y))
+    #    actuator_A_connection_points.append((right_actuators_interconnects_x, mold_front_actuator_y -row_y - actuator_separation_y))
+    #    actuator_B_connection_points.append((right_actuators_interconnects_x, mold_front_actuator_y - row_y - actuator_separation_y))
+    #    actuator_B_connection_points.append((left_actuators_interconnects_x, mold_front_actuator_y - row_y))
+         
+    ## control lines
+    control_line_height_abs = mold_z_zero_abs - mold_depth/2.0
+    control_line_x_dist_from_center_line = (1.0/6.0)*mold_body_width
+    control_line_A_x = mold_center_x - control_line_x_dist_from_center_line
+    control_line_B_x = mold_center_x + control_line_x_dist_from_center_line
+    #control_line_A_height = mold_z_zero_abs-(1.0/3.0)*mold_depth
+    #control_line_B_height = mold_z_zero_abs-(2.0/3.0)*mold_depth
+    #control_node_A = (mold_center_x, channel_A_interconnect_center_y, control_line_A_height)
+    #control_node_B = (mold_center_x, channel_B_interconnect_center_y, control_line_B_height)
+    #controle_distribution_node_dwell_time = 2
+    
+    ## pressure chambers
+    #pressure_chamber_length = 3
+    #pressure_chamber_print_speed = 0.25
+    #pressure_chamber_stem_length = 2
+    #pressure_chamber_height_z_abs = mold_z_zero_abs - mold_depth/2.0
+    #pressure_chamber_y = mold_front_actuator_y - 4*actuator_separation_y - 4
+
+
  
     ################ START PRINTING ################
     
     # set the current X and Y as the origin of the current work coordinates
-    g.write("\nG92 X0 Y0 "+default_z_axis+"0 ; set the current position as the absolute work coordinate zero orgin\n")
+    g.write("\nG92 X0 Y0 "+default_z_axis+"0 ; set the current position as the absolute work coordinate zero origin\n")
     g.absolute()
     
-    # print pressure chamber A (left)
-    travel_mode(whipe_distance=0)
-    g.abs_move(x=pressure_chamber_A_x, y = pressure_chamber_y-pressure_chamber_length-pressure_chamber_stem_length-inlet_length)
-    print_inlet(pressure_chamber_print_height)
+    ################ Valves ################
     
-    # go to the Z interconnect hub for channel A
-    travel_mode(whipe_angle = np.pi/2)
-    g.abs_move(x=mold_center_x, y = channel_A_interconnect_center_y)
-    print_mode(pressure_chamber_print_height)
-    move_z_abs(control_line_A_height)
-    g.dwell(controle_distribution_node_dwell_time)
+    
+    ################ Control Lines and Actuators ################
+    
+    #print control line A
+    travel_mode(whipe_distance=0)
+    g.abs_move(x=control_line_A_x, y = mold_front_actuator_y - n_actuator_rows*actuator_separation_y)
+    print_mode(print_height_abs = control_line_height_abs)
+    g.abs_move(y = mold_front_actuator_y)
+            
+    #print the top left actuator (A1) directly from the end of  control line A
+    g.abs_move(x=left_actuators_interconnects_x)
+    move_z_abs(actuator_print_height)
+    print_left_actuator()
+    
+    #print control line B
+    g.abs_move(x=control_line_B_x, y = mold_front_actuator_y - n_actuator_rows*actuator_separation_y)
+    print_mode(print_height_abs = control_line_height_abs)
+    g.abs_move(y = mold_front_actuator_y)
+    
+    #print actuator B1 (top right) directly from end of control line B
+    g.abs_move(x=right_actuators_interconnects_x)
+    move_z_abs(actuator_print_height)
+    print_right_actuator()
+    
+    #print actuator A3 (second from top, right)
+    g.abs_move(x=control_line_A_x, y=mold_front_actuator_y - 1*actuator_separation_y)
+    print_mode(print_height_abs = control_line_height_abs)
+    move_z_abs(actuator_print_height)
+    g.abs_move(right_actuators_interconnects_x)
+    print_right_actuator()
+    
+    #print actuator B3 (second from top, left)
+    g.abs_move(x=control_line_B_x, y=mold_front_actuator_y - 1.5*actuator_separation_y)
+    print_mode(print_height_abs = control_line_height_abs)
+    move_z_abs(actuator_print_height)
+    g.abs_move(x=left_actuators_interconnects_x)
+    g.abs_move(y=mold_front_actuator_y - 1.0*actuator_separation_y)
+    print_left_actuator()
+    
+    ##print actuator A2 (second from bottom, left)
+    g.abs_move(x=control_line_A_x, y = mold_front_actuator_y - 2*actuator_separation_y)
+    print_mode(print_height_abs = control_line_height_abs)
+    g.abs_move(x=left_actuators_interconnects_x)
+    print_left_actuator()
+    
+    #print actuator B2 (second from bottom, right)
+    g.abs_move(x=control_line_B_x, y = mold_front_actuator_y - 2*actuator_separation_y)
+    print_mode(print_height_abs = control_line_height_abs)
+    g.abs_move(x=right_actuators_interconnects_x)
+    print_right_actuator()
+    
+    #print actuator A4 (bottom right)
+    g.abs_move(x=control_line_B_x, y = mold_front_actuator_y - 3*actuator_separation_y)
+    print_mode(print_height_abs = control_line_height_abs)
+    move_z_abs(actuator_print_height)
+    g.abs_move(x=right_actuators_interconnects_x)
+    print_right_actuator()
+    
+    #print actuator B4 (bottom, left)
+    g.abs_move(x=control_line_B_x, y = mold_front_actuator_y - 2.5*actuator_separation_y)
+    print_mode(print_height_abs = control_line_height_abs)
+    move_z_abs(actuator_print_height)
+    g.abs_move(x=left_actuators_interconnects_x)
+    g.abs_move(y=mold_front_actuator_y - 3*actuator_separation_y)
+    print_left_actuator()
+        
+    
 
 #main program
 print_robot()     
