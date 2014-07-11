@@ -81,7 +81,8 @@ def move_xy(x_distance, y_distance, theta=0):
     S=np.sin(theta)
     if (x_distance!=0 and y_distance!=0):
         g.move(x=x_distance*C-y_distance*S, y=x_distance*S+y_distance*C)
-def print_valve(pressure=85,com_port=9, theta=0, stem_print_speed = default_print_speed, print_height_abs=default_print_height_abs):
+        
+def print_valve(pressure=85,com_port=9, theta=0, stem_print_speed = default_print_speed, flow_connection_x = 3, control_connection_y = 5, print_height_abs=default_print_height_abs):
     """Prints a valve with the stem starting in the current position and rotated by theta. Assume nozzle is already at the correct height"""
     """Overall connection geometry is as follows: 
         back flow connector = (0,-3)
@@ -92,33 +93,41 @@ def print_valve(pressure=85,com_port=9, theta=0, stem_print_speed = default_prin
     
     # stems
     stem_print_speed = 1.5
+    inlet_print_speed = 0.5
+    inlet_stem_length = 2
+    inlet_needle_length = 3
+    inlet_total_length = inlet_stem_length+inlet_needle_length
+    def print_inlet():
+        g.feed(stem_print_speed)
+        move_y(inlet_stem_length, theta)
+        g.feed(inlet_print_speed)
+        move_y(inlet_needle_length, theta)
     
     #general
     pad_z_separation = 0.2+0.19
     junction_dist = 2
     
     #control pads
-    control_pad_stem_length = 4
     control_pad_width = 2 # width in Y
     control_pad_meander_separation = 0.35
     control_pad_n_meanders = 5
     control_pad_length = control_pad_n_meanders*control_pad_meander_separation # length in X
     control_pad_print_speed = 1
-    
+    control_pad_stem_length = control_connection_y - 0.5*control_pad_length
+        
     # flow pad
     flow_pad_n_meanders = 8
     flow_pad_meander_separation = 0.175
     flow_pad_length = flow_pad_meander_separation*flow_pad_n_meanders # length in Y
     flow_pad_width = 1.5 #width in X
-    flow_stem_length = 2
+    flow_stem_length = flow_connection_x-0.5*control_pad_width
     flow_pad_print_speed = 2
 
-    
     #feeds
     stem_print_speed = 1.5
-    matrix_travel_speed = 2
-    pad_print_speed_1 = 1
-    pad_print_speed_2 = 4
+    #matrix_travel_speed = 2
+    #pad_print_speed_1 = 1
+    #pad_print_speed_2 = 4
      
     ##### START WRITING THE SCRIPT ####
     g.write("\n\n; PRINT A VALVE rotation = " + str(theta) + ".")      
@@ -142,9 +151,12 @@ def print_valve(pressure=85,com_port=9, theta=0, stem_print_speed = default_prin
     g.feed(stem_print_speed)
     move_x(control_pad_stem_length, theta)
     
+    #print the control stem inlet
+    print_inlet()
+    
     #travel to the back (-y) interconect point of flow lines
     travel_mode(whipe_angle=theta+np.pi/2)
-    move_xy(x_distance = -control_pad_stem_length-control_pad_length/2.0, y_distance = -flow_stem_length-0.5*control_pad_width, theta=theta)
+    move_xy(x_distance = -control_pad_stem_length-control_pad_length/2.0, y_distance = -inlet_total_length - flow_stem_length - 0.5*control_pad_width, theta=theta)
     print_mode(print_height_abs=print_height_abs+pad_z_separation)
         
     #bottom flow line
@@ -162,13 +174,17 @@ def print_valve(pressure=85,com_port=9, theta=0, stem_print_speed = default_prin
         x_sign = -1*x_sign
     move_y(flow_pad_meander_separation,theta)    
     move_x(x_sign*(flow_pad_width/2.0), theta)
+    
     #top flow line
     g.feed(stem_print_speed)
     move_y(flow_stem_length+0.5*(control_pad_width-flow_pad_length), theta)
     
+    #flow inlet
+    print_inlet()
+    
     #travel over control pad junction
     travel_mode(whipe_angle=theta+np.pi)
-    move_xy(x_distance=junction_dist+0.5*control_pad_length, y_distance=-flow_stem_length-(control_pad_width-flow_pad_length)/2.0-flow_pad_length/2.0, theta=theta)
+    move_xy(x_distance=junction_dist+0.5*control_pad_length, y_distance = -inlet_total_length -flow_stem_length-(control_pad_width-flow_pad_length)/2.0-flow_pad_length/2.0, theta=theta)
     
     #print stem up to control top pad
     print_mode(print_height_abs=print_height_abs)
@@ -288,23 +304,34 @@ def print_robot():
     
     ################ Valves ################
     abdomen_length = 41.5
-    valve_separation_y = abdomen_length/4.0
     n_valves = 4
-    valve_y_positions = [mold_front_actuator_y -  n_actuator_rows*actuator_separation_y - n*valve_separation_y for n in range(n_valves)]
-    valve_x = mold_center_x - 2.5
-    valve_angle = np.pi
+    valve_separation_y = abdomen_length/(n_valves+1.0)
+    valve_flow_connection = 3
+    valve_control_connection = 5
+    valve_print_height = control_line_height_abs -0.39 #this is the pad_z_separation from the print_valve function
+    valve_flow_height = valve_print_height + 0.39 
+    valve_y_positions = [mold_front_actuator_y - valve_control_connection/2.0 -  n_actuator_rows*actuator_separation_y - (1+n)*valve_separation_y for n in range(n_valves)]
+    valve_x = mold_center_x
+    valve_angle = np.pi*0.5
     travel_mode(whipe_distance=0)
     for valve_y in valve_y_positions:
         g.abs_move(x=valve_x, y = valve_y)
-        print_mode(print_height_abs = control_line_height_abs)
-        print_valve(print_height_abs=control_line_height_abs, theta=valve_angle)
+        print_mode(print_height_abs = valve_print_height)
+        print_valve(flow_connection_x = valve_flow_connection, control_connection_y = valve_control_connection, print_height_abs=valve_print_height, theta=valve_angle)
+    
+    #connect the flow lines of the front two valves together, then to control line A
+    g.abs_move(x=valve_x+valve_flow_connection, y=valve_y_positions[1])
+    print_mode(print_height_abs = valve_flow_height)
+    g.abs_move(y=valve_y_positions[0])
+    g.dwell(default_start_stop_dwell_time)
+    g.abs_move(y=valve_y_positions[0]+valve_control_connection+2)
     
     ################ Control Lines and Actuators ################
     
     #print control line A
 #    travel_mode(whipe_distance=0)
     g.abs_move(x=control_line_A_x, y = mold_front_actuator_y - n_actuator_rows*actuator_separation_y)
-    print_mode(print_height_abs = control_line_height_abs)
+#    print_mode(print_height_abs = control_line_height_abs)
     g.abs_move(y = mold_front_actuator_y)
             
     #print the top left actuator (A1) directly from the end of  control line A
@@ -312,9 +339,17 @@ def print_robot():
     move_z_abs(actuator_print_height)
     print_left_actuator()
     
+    # Connect the flow lines of the back two valves together, then to control line B
+    g.abs_move(x=valve_x+valve_flow_connection, y=valve_y_positions[3])
+    print_mode(print_height_abs = valve_flow_height)
+    g.abs_move(y=valve_y_positions[2])
+    g.dwell(default_start_stop_dwell_time)
+    g.abs_move(x = valve_x+valve_flow_connection + 2, y = valve_y_positions[2]+2)
+    g.abs_move(y=valve_y_positions[0]+valve_control_connection+2)
+    
     #print control line B
     g.abs_move(x=control_line_B_x, y = mold_front_actuator_y - n_actuator_rows*actuator_separation_y)
-    print_mode(print_height_abs = control_line_height_abs)
+#    print_mode(print_height_abs = control_line_height_abs)
     g.abs_move(y = mold_front_actuator_y)
     
     #print actuator B1 (top right) directly from end of control line B
