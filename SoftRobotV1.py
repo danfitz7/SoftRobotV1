@@ -172,11 +172,12 @@ default_line_pressure = 85
 default_com_port = 9
 default_start_stop_dwell_time = 0.2
 default_travel_speed = 20
-default_matrix_travel_speed = 1 # speed to travel in matrix (used for traveling vertically)
-default_mold_top_abs = 0
+default_matrix_travel_speed = 0.5 # speed to travel in matrix (used for traveling vertically)
+default_matrix_print_speed = 0.25
+default_mold_top_abs = 1 #relative to ecoflex
 default_travel_height_abs = default_mold_top_abs+2
 default_print_speed = 1.5
-default_z_axis = "z"
+default_z_axis = "A"
 
 # Pressure control Macros
 pressure_on = False
@@ -198,13 +199,19 @@ def turn_pressure_on(com_port = default_com_port, start_stop_dwell_time = defaul
 def move_z_abs(height, z_axis = default_z_axis, vertical_travel_speed = default_matrix_travel_speed):
     global g
     cur_pos = g.get_current_position()
-    prev_speed=default_travel_speed
+    prev_speeds=default_travel_speed
     if (cur_pos):
-        prev_speed = cur_pos[3]
+        prev_speeds = cur_pos[3]
         g.feed(vertical_travel_speed)
     if ((not cur_pos) or (cur_pos[2] != height)):
         g.abs_move(**{z_axis:height})
-    g.feed(prev_speed)
+
+#TODO: fixme
+    if (type(prev_speeds) != type(0)):
+#        print "Prev speed: " + str(prev_speeds[1])
+        g.feed(prev_speeds[1])
+    else:
+        g.feed(prev_speeds)
     
 #def travel_mode(travel_speed = default_travel_speed, travel_height_abs = default_travel_height_abs):
 #    """"Stop Extrusion, move to travel height"""
@@ -218,6 +225,7 @@ def travel_mode(travel_speed = default_travel_speed, travel_height_abs = default
     global g
     turn_pressure_off()
     g.dwell(default_start_stop_dwell_time)
+    #g.move(x=np.cos*
 #    move_x(whipe_distance,whipe_angle)
     move_z_abs(travel_height_abs)  
     g.feed(travel_speed)
@@ -315,7 +323,7 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
     g.relative()
     
     #move from above the pad center to its lower corner
-    travel_mode()
+#    travel_mode() #assume we're already in travel mode
     move_xy(x_distance= -control_pad_length/2.0 , y_distance=-control_pad_width/2.0,theta=theta)
     
     #print the bottom control pad, starting at the edge of the pad
@@ -369,7 +377,9 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
     
     #print stem up to control top pad
     print_mode(print_height_abs=print_height_abs)
+    g.feed(default_matrix_print_speed)
     g.move(**{default_z_axis:2*pad_z_separation})
+    g.feed(stem_print_speed)
     move_x(-junction_dist, theta)
     # BUG TODO FIX ME: can;t move relative x y and z for connection from bottom stem to top control pad
     #move_xy(x_distance=-junction_dist, y_distance=0, z_distance=2*pad_z_separation, theta=theta)
@@ -390,8 +400,8 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
             
 def print_actuator(print_height_abs, pressure=85, com_port=9, theta=0, travel_speed = default_travel_speed):
     """Prints a soft actuator with the stem starting in the current position and rotated by theta. Assume nozzle is already at the correct height"""
-    global g           
-                    
+    global g                         
+                                                    
     # stems
     stem_print_speed = 1.5
     stem_length =   10+4
@@ -437,13 +447,16 @@ def print_actuator(print_height_abs, pressure=85, com_port=9, theta=0, travel_sp
 
 def print_robot():
     
+    # parameters specific to each print
+    MACHINE_ZERO = -58.075
+    
     # mold parameters
     mold_z_zero_abs = 0     # absolute zero of the top of the mold
     mold_center_x = 53.5    # x coordinate of the center of the robot, relative to mold top left corner
     mold_front_leg_row_y = - 13  # y cooredinate of the center of the front/foreward actuators, relative to mold top left corner
     mold_back_leg_row_y = -34
     mold_actuator_z_bottom_abs = mold_z_zero_abs - 1.5 # relative to top of mold
-    mold_actuator_z_top = mold_z_zero_abs - 1 # relative top top of mold (expected)
+#    mold_actuator_z_top = 0 #mold_z_zero_abs - 1 # relative top top of mold (expected)
     mold_depth = 7.62
     mold_body_width = 25.4
     mold_body_length = 65.2
@@ -460,7 +473,7 @@ def print_robot():
     #actuators 
     n_actuator_rows=4
     actuator_print_height_offset = 0.1 # nozzle height above ecoflex
-    actuator_print_height = mold_actuator_z_top +  actuator_print_height_offset
+    actuator_print_height = mold_z_zero_abs + actuator_print_height_offset
     actuator_separation_y = 7 #distance between the "legs"    actuator_z_connect_inset = 5
     actuator_z_connect_inset = 5
     left_actuators_interconnects_x = mold_center_x - mold_body_width/2 + actuator_z_connect_inset
@@ -482,10 +495,13 @@ def print_robot():
     ################ START PRINTING ################
     
     # set the current X and Y as the origin of the current work coordinates
-    g.write("\nG92 X0 Y0 "+default_z_axis+"0 ; set the current position as the absolute work coordinate zero origin\n")
+    g.absolute()
+    g.write("POSOFFSET CLEAR A ; clear all position offsets and work coordinates.") 
+    g.feed(default_travel_speed)
+    move_z_abs(MACHINE_ZERO+default_travel_height_abs)
+    g.write("\nG92 X0 Y0 "+default_z_axis+str(default_travel_height_abs)+" ; set the current position as the absolute work coordinate zero origin")
     travel_mode()
     g.abs_move(x=0,y=0,**{default_z_axis:0})
-    g.absolute()
     
     ################ Valves ################
     abdomen_length = 41.5
@@ -501,6 +517,8 @@ def print_robot():
     valve_x = mold_center_x
     valve_angle = np.pi*0.5
     travel_mode(whipe_distance=0)
+    
+    #print ALL  the valves
     for valve_y in valve_y_positions:
         g.abs_move(x=valve_x, y = valve_y)
         print_valve(flow_connection_x = valve_flow_connection, control_connection_y = valve_control_connection, print_height_abs=valve_print_height, theta=valve_angle)
@@ -560,6 +578,7 @@ def print_robot():
     g.abs_move(x=control_line_B_x, y=mold_front_leg_row_y - 1.5*actuator_separation_y)
     print_mode_control_line_B()
     move_z_abs(control_line_bridge_height_abs)
+    g.feed(default_print_speed)
     g.abs_move(x=left_actuators_interconnects_x)
     g.abs_move(y=mold_front_leg_row_y - 1.0*actuator_separation_y)
     print_left_actuator()
@@ -587,12 +606,13 @@ def print_robot():
     g.abs_move(x=control_line_A_x, y = mold_front_leg_row_y - 2.5*actuator_separation_y)
     print_mode_control_line_A()
     move_z_abs(control_line_bridge_height_abs)
+    g.feed(default_print_speed)
     g.abs_move(x=right_actuators_interconnects_x)
     g.abs_move(y=mold_front_leg_row_y - 3*actuator_separation_y)
     print_right_actuator()
 
     #go back to home
-    g.abs_move(x=0,y=0,**{default_z_axis:0})
+    g.abs_move(x=0,y=0,**{default_z_axis:default_travel_height_abs})
 
 #main program
 print_robot()     
