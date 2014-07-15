@@ -159,7 +159,7 @@ ENDDFS
 
 g = G(
     print_lines=False,
-    outfile=r"H:\User Files\Fitzgerald\SoftRobots\SoftRobotV1\gcode\SoftRobotFourActuators.pgm",
+    outfile=r"H:\User Files\Fitzgerald\SoftRobots\SoftRobotV1\gcode\SoftRobotFourActuatorsV2.pgm",
     aerotech_include=False,
 )
 
@@ -404,7 +404,7 @@ def print_actuator(print_height_abs, pressure=85, com_port=9, theta=0, travel_sp
                                                     
     # stems
     stem_print_speed = 1.5
-    stem_length =   10+4
+    stem_length =  4+8 # distance to the edge of the mold body +length of the "shoulder-elbow" segment
     pad_separation_stem_length = 4
     
     #pad
@@ -418,11 +418,11 @@ def print_actuator(print_height_abs, pressure=85, com_port=9, theta=0, travel_sp
     def print_actuator_pad():
         g.feed(pad_print_speed)
         move_x(-pad_width/2, theta) #move to the lower left corner of the pad
-        for meander in range(n_meanders):
+        for meander in range(n_meanders-1):
             move_xy(x_distance=pad_width, y_distance=meander_separation_dist,theta=theta)        # horizontal across the whole pad
-            move_x(-pad_width)
-        move_y(meander_separation_dist, theta)      # vertical down one meander width     
-        move_x(pad_width/2, theta)           # move to the middle of the top of the pad
+            move_x(-pad_width,theta)
+        move_xy(x_distance=pad_width, y_distance=meander_separation_dist,theta=theta)    
+        move_x(-pad_width/2, theta)           # move to the middle of the top of the pad
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
     print_mode(print_height_abs = print_height_abs,print_speed = stem_print_speed)
     
@@ -506,12 +506,13 @@ def print_robot():
     abdomen_length = 41.5
     n_valves = 4
     abdomen_clearence = 4
+    abdomen_offset = -2
     valve_separation_y = (abdomen_length-2*abdomen_clearence)/(n_valves+1.0)
     valve_flow_connection = 3
     valve_control_connection = 3
     valve_print_height = control_line_height_abs -0.39 #this is the pad_z_separation from the print_valve function
     valve_flow_height = valve_print_height + 0.39 
-    valve_y_positions = [mold_head_y - mold_body_length + abdomen_clearence+(n_valves-n)*valve_separation_y for n in range(n_valves)]
+    valve_y_positions = [mold_head_y - mold_body_length + abdomen_offset+abdomen_clearence+(n_valves-n)*valve_separation_y for n in range(n_valves)]
     print "Valve Y Positions: " + str(valve_y_positions)
     valve_x = mold_center_x
     valve_angle = np.pi*0.5
@@ -522,13 +523,17 @@ def print_robot():
         g.abs_move(x=valve_x, y = valve_y)
         print_valve(flow_connection_x = valve_flow_connection, control_connection_y = valve_control_connection, print_height_abs=valve_print_height, theta=valve_angle)
     
+    valve_flow_connection_gopast_distance = 1
+    valve_connection_turn_offset = 1
+    
     #connect the flow lines of the front two valves together, then to control line A
     g.abs_move(x=valve_x+valve_flow_connection, y=valve_y_positions[1])
     print_mode(print_height_abs = valve_flow_height)
     g.abs_move(y=valve_y_positions[0])
     g.dwell(default_start_stop_dwell_time)
-    g.abs_move(y=valve_y_positions[0]+valve_control_connection+2)
-    
+    g.abs_move(y=valve_y_positions[0]+valve_flow_connection_gopast_distance) #go past the connection point a little before turning
+    g.abs_move(y=valve_y_positions[0]+valve_control_connection+valve_connection_turn_offset) # valve_control_connection+
+    g.abs_move(y=mold_back_leg_row_y+abdomen_offset, x=control_line_A_x)
     ################ Control Lines and Actuators ################
     
     #print control line A
@@ -543,12 +548,14 @@ def print_robot():
     print_left_actuator()
     
     # Connect the flow lines of the back two valves together, then to control line B
-    g.abs_move(x=valve_x+valve_flow_connection, y=valve_y_positions[3])
+    g.abs_move(x=valve_x+valve_flow_connection, y=valve_y_positions[3]) #Start at the back valve flow line
     print_mode(print_height_abs = valve_flow_height)
-    g.abs_move(y=valve_y_positions[2])
-    g.dwell(default_start_stop_dwell_time)
-    g.abs_move(x = valve_x+valve_flow_connection + 2, y = valve_y_positions[2]+2)
-    g.abs_move(y=valve_y_positions[0]+valve_control_connection+2)
+    g.abs_move(y=valve_y_positions[2]) # Connect to the second-to-back valve flow line
+    g.dwell(default_start_stop_dwell_time) # dwell for good connnection
+    g.abs_move(y=valve_y_positions[2]+valve_flow_connection_gopast_distance) # go past the connection point a little before turning, to not "tear" the connection
+    g.abs_move(x = valve_x+valve_flow_connection + 2, y = valve_y_positions[2]+2+valve_flow_connection_gopast_distance) # turn diagonally so we don't hit the flow conneciton line for the first two valves
+    g.abs_move(y=valve_y_positions[0]+valve_control_connection+valve_connection_turn_offset) # valve_control_connection+  #go foreward the the first valve y position
+    g.abs_move(y=mold_back_leg_row_y+abdomen_offset, x=control_line_B_x) # align with control line B so we can go straight in Y for a bit before printing it (turn point isn't a z-connection point)
     
     #print control line B
     g.abs_move(x=control_line_B_x, y = mold_back_leg_row_y)
