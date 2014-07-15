@@ -175,9 +175,9 @@ default_travel_speed = 20
 default_matrix_travel_speed = 0.5 # speed to travel in matrix (used for traveling vertically)
 default_matrix_print_speed = 0.25
 default_mold_top_abs = 1 #relative to ecoflex
-default_travel_height_abs = default_mold_top_abs+2
+default_travel_height_abs = default_mold_top_abs+3
 default_print_speed = 1.5
-default_z_axis = "z"
+default_z_axis = "A"
 
 # Pressure control Macros
 pressure_on = False
@@ -501,30 +501,33 @@ def print_robot():
     g.feed(default_travel_speed)
     move_z_abs(MACHINE_ZERO+default_travel_height_abs)
     g.write("\nG92 X0 Y0 "+default_z_axis+str(default_travel_height_abs)+" ; set the current position as the absolute work coordinate zero origin")
+    g.feed(default_travel_speed)
     travel_mode()
-    g.abs_move(x=0,y=0,**{default_z_axis:0})
+    g.write(" ; ready to print")
+#    g.abs_move(x=0,y=0,**{default_z_axis:0})
     
     ################ Valves ################
     abdomen_length = 41.5
     n_valves = 4
     abdomen_clearence = 4
-    abdomen_offset = -2
+    abdomen_offset = -1
     valve_separation_y = (abdomen_length-2*abdomen_clearence)/(n_valves+1.0)
     valve_flow_connection = 3
     valve_control_connection = 3
     valve_print_height = control_line_height_abs -0.39 #this is the pad_z_separation from the print_valve function
     valve_flow_height = valve_print_height + 0.39 
     valve_y_positions = [mold_head_y - mold_body_length + abdomen_offset+abdomen_clearence+(n_valves-n)*valve_separation_y for n in range(n_valves)]
-    print "Valve Y Positions: " + str(valve_y_positions)
+#    print "Valve Y Positions: " + str(valve_y_positions)
     valve_x = mold_center_x
     valve_angle = np.pi*0.5
-    travel_mode(whipe_distance=0)
+#    travel_mode(whipe_distance=0)
     
     #print ALL  the valves
+    g.write(" ; PPRINT FOUR VALVES\n")
     for valve_y in valve_y_positions:
         g.abs_move(x=valve_x, y = valve_y)
         print_valve(flow_connection_x = valve_flow_connection, control_connection_y = valve_control_connection, print_height_abs=valve_print_height, theta=valve_angle)
-    
+    g.write(" ; DONE PRININGT FOUR VALVES\n")
     valve_flow_connection_gopast_distance = 1
     valve_connection_turn_offset = 1
     
