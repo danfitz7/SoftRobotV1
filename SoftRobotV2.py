@@ -446,9 +446,11 @@ def print_actuator(print_height_abs, pressure=85, com_port=9, theta=0, travel_sp
 
 def print_robot():
     
-    # parameters specific to each print
-    MACHINE_ZERO = -58.075
-    
+    # PRINT_SPECIFIC PARAMETERS
+    MACHINE_ZERO = -58.3837 #zero on the top of the left ecoflex layer
+    MACHINE_ZERO_RIGHT = -58.6 #the top of the left ecoflex layer
+    right_side_offset = MACHINE_ZERO_RIGHT-MACHINE_ZERO # added to the print height of the right actuators
+                    
     # mold parameters
     mold_z_zero_abs = 0     # absolute zero of the top of the mold
     mold_center_x = 53.5    # x coordinate of the center of the robot, relative to mold top left corner
@@ -479,7 +481,7 @@ def print_robot():
     right_actuators_interconnects_x = mold_center_x + mold_body_width/2 - actuator_z_connect_inset
     
     def print_right_actuator():
-        print_actuator(theta = 1.5*np.pi, print_height_abs = actuator_print_height)
+        print_actuator(theta = 1.5*np.pi, print_height_abs = actuator_print_height+right_side_offset)
     
     def print_left_actuator():
         print_actuator(theta = 0.5*np.pi, print_height_abs = actuator_print_height)
