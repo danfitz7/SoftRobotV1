@@ -411,19 +411,18 @@ def print_actuator(print_height_abs, pressure=85, com_port=9, theta=0, travel_sp
     pad_length = 2.6 # length in Y
     pad_width = 2.6 # width in x
     n_meanders = 8
-    pad_print_speed = 3.375
+    default_pad_print_speecd = 4.5
+    pad_print_speed = default_pad_print_speecd * 0.75
     meander_separation_dist = pad_length/n_meanders
     
     def print_actuator_pad():
         g.feed(pad_print_speed)
         move_x(-pad_width/2, theta) #move to the lower left corner of the pad
-        x_sign = 1
-        for meander in range(n_meanders-1):
-            move_y(meander_separation_dist, theta)  # vertical down one meander width     
-            move_x(x_sign *pad_width, theta)        # horizontal across the whole pad
-            x_sign = - x_sign
+        for meander in range(n_meanders):
+            move_xy(x_distance=pad_width, y_distance=meander_separation_dist,theta=theta)        # horizontal across the whole pad
+            move_x(-pad_width)
         move_y(meander_separation_dist, theta)      # vertical down one meander width     
-        move_x(x_sign*pad_width/2, theta)           # move to the middle of the top of the pad
+        move_x(pad_width/2, theta)           # move to the middle of the top of the pad
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
     print_mode(print_height_abs = print_height_abs,print_speed = stem_print_speed)
     
@@ -571,6 +570,7 @@ def print_robot():
     g.abs_move(x=control_line_A_x, y=mold_front_leg_row_y - 1*actuator_separation_y)
     print_mode_control_line_A()
     move_z_abs(control_line_bridge_height_abs)
+    g.feed(default_print_speed)
     g.abs_move(right_actuators_interconnects_x)
     print_right_actuator()
     
@@ -599,6 +599,7 @@ def print_robot():
     g.abs_move(x=control_line_B_x, y = mold_front_leg_row_y - 3*actuator_separation_y)
     print_mode_control_line_B()
     move_z_abs(control_line_bridge_height_abs)
+    g.feed(default_print_speed)
     g.abs_move(x=left_actuators_interconnects_x)
     print_left_actuator()
         
