@@ -177,7 +177,7 @@ default_matrix_print_speed = 0.25
 default_mold_top_abs = 1 #relative to ecoflex
 default_travel_height_abs = default_mold_top_abs+3
 default_print_speed = 1.5
-default_z_axis = "A"
+default_z_axis = "z"
 
 # Pressure control Macros
 pressure_on = False
@@ -274,7 +274,27 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
     """Overall connection geometry is as follows: 
         back flow connector = (0,-3)
         front flow connector = (0,3)
-        control line connector = (5,0)"""
+        control line connector = (5,0)
+        
+        y
+        
+        ^
+        |
+        +-> x
+        
+        Theta=0
+        
+        Top Flow Inlet
+        
+            I  I    
+            |  |    Control Inlet
+            M--*     
+            |
+            I
+        
+        Bottom Flow Inlet
+        
+        """
     
     global g
     
@@ -292,7 +312,7 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
     
     #general
     pad_z_separation = 0.2+0.19
-    junction_dist = 2
+    junction_dist = 1.0
     
     #control pads
     control_pad_width = 2 # width in Y
@@ -338,14 +358,16 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
     
     #print the stem from the bottom control pad
     g.feed(stem_print_speed)
-    move_x(control_pad_stem_length, theta)
+    move_x(control_pad_stem_length, theta) #go to the right
     
-    #print the control stem inlet
-    print_inlet()
+    #print the control stem inlet so it lines up with the flow inlet
+    control_stem_alignement_distance = flow_connection_x     #TODO: why does flow_connection_x=3 work?
+    move_y(control_stem_alignement_distance, theta)
+    print_inlet() #print the inlet up
     
     #travel to the back (-y) interconect point of flow lines
     travel_mode(whipe_angle=theta+np.pi/2)
-    move_xy(x_distance = -control_pad_stem_length-control_pad_length/2.0, y_distance = -inlet_total_length - flow_stem_length - 0.5*control_pad_width, theta=theta)
+    move_xy(x_distance = -control_pad_stem_length-control_pad_length/2.0, y_distance = -inlet_total_length - flow_stem_length - 0.5*control_pad_width - control_stem_alignement_distance, theta=theta)
     print_mode(print_height_abs=print_height_abs+pad_z_separation)
         
     #bottom flow line
@@ -366,7 +388,7 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
     
     #top flow line
     g.feed(stem_print_speed)
-    move_y(flow_stem_length+0.5*(control_pad_width-flow_pad_length), theta)
+    move_y(flow_stem_length+(control_pad_width-flow_pad_length)/2.0, theta)
     
     #flow inlet
     print_inlet()
@@ -447,8 +469,8 @@ def print_actuator(print_height_abs, pressure=85, com_port=9, theta=0, travel_sp
 def print_robot():
     
     # PRINT_SPECIFIC PARAMETERS
-    MACHINE_ZERO = -58.3837 #zero on the top of the left ecoflex layer
-    MACHINE_ZERO_RIGHT = -58.6 #the top of the left ecoflex layer
+    MACHINE_ZERO = -58.36 #zero on the top of the left ecoflex layer
+    MACHINE_ZERO_RIGHT = -58.273 #the top of the left ecoflex layer
     right_side_offset = MACHINE_ZERO_RIGHT-MACHINE_ZERO # added to the print height of the right actuators
                     
     # mold parameters
@@ -520,6 +542,7 @@ def print_robot():
 #    print "Valve Y Positions: " + str(valve_y_positions)
     valve_x = mold_center_x
     valve_angle = np.pi*0.5
+    valve_connection_dwell_time = 2 # when connecting to the valve flowstems, dwell for this long to make a good blob junction
 #    travel_mode(whipe_distance=0)
     
     #print ALL  the valves
@@ -532,10 +555,11 @@ def print_robot():
     valve_connection_turn_offset = 1
     
     #connect the flow lines of the front two valves together, then to control line A
-    g.abs_move(x=valve_x+valve_flow_connection, y=valve_y_positions[1])
+    g.abs_move(x=valve_x+valve_flow_connection, y=valve_y_positions[1]) # go over the flow connector of the back valve
     print_mode(print_height_abs = valve_flow_height)
+    g.dwell(valve_connection_dwell_time)
     g.abs_move(y=valve_y_positions[0])
-    g.dwell(default_start_stop_dwell_time)
+    g.dwell(valve_connection_dwell_time)
     g.abs_move(y=valve_y_positions[0]+valve_flow_connection_gopast_distance) #go past the connection point a little before turning
     g.abs_move(y=valve_y_positions[0]+valve_control_connection+valve_connection_turn_offset) # valve_control_connection+
     g.abs_move(y=mold_back_leg_row_y+abdomen_offset, x=control_line_A_x)
@@ -555,8 +579,9 @@ def print_robot():
     # Connect the flow lines of the back two valves together, then to control line B
     g.abs_move(x=valve_x+valve_flow_connection, y=valve_y_positions[3]) #Start at the back valve flow line
     print_mode(print_height_abs = valve_flow_height)
+    g.dwell(valve_connection_dwell_time)
     g.abs_move(y=valve_y_positions[2]) # Connect to the second-to-back valve flow line
-    g.dwell(default_start_stop_dwell_time) # dwell for good connnection
+    g.dwell(valve_connection_dwell_time) # dwell for good connnection
     g.abs_move(y=valve_y_positions[2]+valve_flow_connection_gopast_distance) # go past the connection point a little before turning, to not "tear" the connection
     g.abs_move(x = valve_x+valve_flow_connection + 2, y = valve_y_positions[2]+2+valve_flow_connection_gopast_distance) # turn diagonally so we don't hit the flow conneciton line for the first two valves
     g.abs_move(y=valve_y_positions[0]+valve_control_connection+valve_connection_turn_offset) # valve_control_connection+  #go foreward the the first valve y position
