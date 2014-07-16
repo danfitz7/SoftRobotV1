@@ -288,7 +288,7 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
         
             I  I    
             |  |    Control Inlet
-            M--*     
+            E--*     
             |
             I
         
@@ -358,7 +358,7 @@ def print_valve(print_height_abs, pressure=85,com_port=9, theta=0, stem_print_sp
     
     #print the stem from the bottom control pad
     g.feed(stem_print_speed)
-    move_x(control_pad_stem_length, theta) #go to the right
+    move_x(control_pad_stem_length, theta) #go to the right before corner to inlet
     
     #print the control stem inlet so it lines up with the flow inlet
     control_stem_alignement_distance = flow_connection_x     #TODO: why does flow_connection_x=3 work?
